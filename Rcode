@@ -1,1 +1,67 @@
+---
+title: "Target Expression Analysis by Disease Type"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+
+## Objective:
+Identifying the relevant oncological disease types/cohorts for their solid tumor immunotherapy.
+
+### Code:
+```{r, warning=FALSE}
+library(FirebrowseR)
+library(ggplot2)
+TCGA_cohort = Metadata.Cohorts(format="csv",cohort="")$cohort
+#Issue on retrieving data for FPPP cohort using FirebrowseR, so I removed FPPP from cohort list.
+TCGA_cohort=TCGA_cohort[TCGA_cohort!="FPPP"]
+Median=""
+#NOTES: From gene card: PD-1:PDCD1|CD279 & PD-L1:CD274 
+for(x in (TCGA_cohort)){
+	PD1 = Analyses.mRNASeq.Quartiles(format = "csv", gene = "PDCD1", cohort = x, protocol = "RSEM", sample_type = "tumors", Exclude = "")
+	PDL1 = Analyses.mRNASeq.Quartiles(format = "csv", gene = "CD274", cohort = x, protocol = "RSEM", sample_type = "tumors", Exclude = "")
+	Median[x]= paste (PD1$median, '\t', PDL1$median)
+					   }
+write.table(Median,"Median_Expression.tsv", sep="\t",row.names=TRUE, col.names =FALSE, quote = FALSE)
+mydata=read.table("Median_Expression.tsv",sep="\t")
+
+lm_eqn <- function(m){
+    eq <- substitute(italic(y) == a + b %.% italic(x)*","~~italic(pval)~"="~p*","~~italic(r)^2~"="~r2, 
+                     list(a = format(coef(m)[1], digits = 2), 
+                          b = format(coef(m)[2], digits = 2),
+                          p = format(summary(fit)$coefficients[2,4], digits = 2),
+                          r2 = format(summary(m)$r.squared, digits = 2)))
+    as.character(as.expression(eq));                 
+}
+fit <- lm(X.1 ~ X, data = mydata)
+MyPlot=ggplot(mydata, aes(x=X, y=X.1)) +
+    labs(x = "PD-1 (median log2 expression)", y ="PD-L1 (median log2 expression)")+
+    geom_point(size=2.5, shape=19,color = "yellowgreen")+
+    geom_text(label=rownames(mydata),fontface="bold",size = 3.0,color="orange",hjust=0.25, vjust=1.5)+
+    geom_smooth(method="lm", se=TRUE, level=0.5)+
+    geom_text(x=7.5,y=2.0,size = 3.0, label = lm_eqn(fit), parse = TRUE)
+#MyPlot
+```
+### Scatterplot comparing median RSEM normalized expression per cohort of PD-1 vs PD-L1
+
+```{r,echo=FALSE}
+MyPlot
+```
+
+### Notes:
+
+
+The median RSEM normalized expression  of PD-1 and PD-L1 per cohort, sorted by descending combined expression were stored in file **Median_Expression.tsv**
+
+## Summary:
+
+As illustrated in the scatterplot of the median log2 expression for genes; PD-1 and PD-L1 per cancer cohort (from TCGA), we can conclude that these two genes exhibit a significant association (p=0.002, r^2=0.24) across all reported cancers, The most relevant oncological disease cohorts for their solid tumor immunotherapy based on current data analysis with the highest median co-expression would be DLBC, also PAAD and BRCA can be considered as they perfectly aligns with the predicted relationship between PD-1 and PD-L1.
+
+
+
+
+
+
+
 
